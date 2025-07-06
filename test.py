@@ -3,42 +3,56 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
-from sklearn.preprocessing import StandardScaler
 import streamlit as st
 
-data = pd.read_csv('creditcard.csv')
+st.title("💳 Credit Card Fraud Detection")
 
-legit = data[data.Class == 0]
-fraud = data[data.Class==1]
+# File Upload
+uploaded_file = st.file_uploader("📂 Upload your creditcard.csv file", type=["csv"])
+if uploaded_file is not None:
+    data = pd.read_csv(uploaded_file)
 
-legit_sample = legit.sample(n=len(fraud), random_state = 2)
-data = pd.concat([legit_sample, fraud], axis =0)
+    st.write("📊 Preview of Dataset:", data.head())
 
-#split data into training and testing set
-X = data.drop(columns="Class",axis=1)
-y=data["Class"]
+    # Balance the dataset
+    legit = data[data.Class == 0]
+    fraud = data[data.Class == 1]
+    legit_sample = legit.sample(n=len(fraud), random_state=2)
+    data = pd.concat([legit_sample, fraud], axis=0)
 
-X_train, X_test,y_train,y_test = train_test_split(X,y,test_size=0.2,stratify =y,random_state=2)
-#train logistics regression model
-model = LogisticRegression()
-model.fit(X_train,y_train)
+    # Split features and label
+    X = data.drop(columns="Class", axis=1)
+    y = data["Class"]
 
-#evaluate model performance
-train_acc = accuracy_score(model.predict(X_train),y_train)
-test_acc = accuracy_score(model.predict(X_test),y_test)
+    # Train/test split
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=2)
 
+    # Train model
+    model = LogisticRegression(max_iter=1000)
+    model.fit(X_train, y_train)
 
-#let's have a fun with create Streamlit app
+    # Accuracy
+    train_acc = accuracy_score(model.predict(X_train), y_train)
+    test_acc = accuracy_score(model.predict(X_test), y_test)
 
-st.title("Credit Card Fraud Detection Model")
-input_df = st.text_input('Enter All required Features values')
-input_df_splitted = input_df.split(',')
-submit = st.button("Submit")
-if submit:
-    features = np.asarray(input_df_splitted,dtype=np.float64)
-    prediction =model.predict(features.reshape(1,-1))
+    st.success(f"✅ Model trained!\nTraining Accuracy: {train_acc:.2f}\nTest Accuracy: {test_acc:.2f}")
 
-    if(prediction[0]==0):
-        st.write("Legitimate Transaction")
-    else:
-        st.write("Fraudlent Transaction")
+    # Manual prediction input
+    st.subheader("🧠 Test a Transaction")
+    st.markdown("Paste 30 comma-separated feature values from a transaction row (excluding Class).")
+
+    input_text = st.text_area("🔢 Input features (V1, V2, ..., V28, Amount, Time):", height=100)
+
+    if st.button("🚀 Predict"):
+        try:
+            input_list = np.array([float(x) for x in input_text.split(',')])
+            if input_list.shape[0] != X.shape[1]:
+                st.error(f"❌ Expected {X.shape[1]} features, but got {input_list.shape[0]}")
+            else:
+                prediction = model.predict(input_list.reshape(1, -1))
+                result = "✅ Legitimate Transaction" if prediction[0] == 0 else "🚨 Fraudulent Transaction"
+                st.success(result)
+        except ValueError:
+            st.error("❌ Invalid input. Please enter only numeric values separated by commas.")
+else:
+    st.warning("⚠️ Please upload your `creditcard.csv` file to begin.")
